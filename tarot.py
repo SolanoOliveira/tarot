@@ -1,15 +1,16 @@
+import os
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel, PeftConfig
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 
-# ⚠️ Substitua pelo seu token do BotFather
-TELEGRAM_TOKEN = "7535144647:AAHcF5BC0f4Sqq6IFQClB7wU9eRb6wcTIEE"
+# ⚠️ Pegue o token de variável de ambiente (definida no Render ou localmente)
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
-# ⚠️ Caminho onde você salvou o adaptador
+# Caminho do adaptador LoRA
 ADAPTER_PATH = "./adaptador"
 
-# Carregar config para saber qual era o modelo base
+# Carregar modelo base + adaptador LoRA
 config = PeftConfig.from_pretrained(ADAPTER_PATH)
 base_model = AutoModelForCausalLM.from_pretrained(config.base_model_name_or_path)
 model = PeftModel.from_pretrained(base_model, ADAPTER_PATH)
@@ -23,17 +24,21 @@ def responder(pergunta):
     resposta = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return resposta.split("### Resposta:")[-1].strip()
 
-# Função assíncrona para lidar com mensagens
+# Lidar com mensagens recebidas
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pergunta = update.message.text
     resposta = responder(pergunta)
     await update.message.reply_text(resposta)
 
-# Inicializar o bot com a nova estrutura
+# Inicializar e rodar bot
 def main():
+    if not TELEGRAM_TOKEN:
+        print("❌ TELEGRAM_TOKEN não definido. Defina como variável de ambiente.")
+        return
+
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("🤖 Bot rodando... Envie uma mensagem no Telegram!")
+    print("🤖 Bot do Tarot rodando...")
     app.run_polling()
 
 if __name__ == "__main__":
